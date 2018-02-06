@@ -98,10 +98,12 @@ function ComputeHessian ( img , outpath, fname, id)
     Options.FrangiScaleRange = [0.1 16];
     Options.FrangiScaleRatio = 0.1;
     sigmas=Options.FrangiScaleRange(1):Options.FrangiScaleRatio:Options.FrangiScaleRange(2);
-    sigmas1=sigmas(1:1:20); %(0.1 to 2)
-    sigmas2=sigmas(51:1:100);%(5 to 10)
-    sigmas4=sigmas(131:1:end);%(13 to 16)
-
+    %sigmas1=sigmas(1:1:20); %(0.1 to 2)
+    %sigmas2=sigmas(51:1:100);%(5 to 10)
+    %sigmas4=sigmas(131:1:end);%(13 to 16)
+    sigmas1=sigmas(1:0.5:5);
+    sigmas2=sigmas(5:1:10);
+    sigmas4=sigmas(10:1:20);
 	[outIm, whatScale,Direction] = Hessian_Vesselness(1-img,Options,sigmas2); %figure; imshow(outIm);title('outIm(5-10)');%figure; imshow(Direction);
 	[outImL,whatScale,Direction] = Hessian_Vesselness(1-img,Options,sigmas4); %figure; imshow(outImL);title('outImL(13-16)');%figure; imshow(Direction);
 	[outImh,whatScale,Direction] = Hessian_Vesselness(1-img,Options,sigmas1); %figure; imshow(outImh);title('outImh');%figure;imshow(Direction);
