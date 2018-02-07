@@ -10,8 +10,8 @@ addpath('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\frangi_filter_version2a
 %path1  = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\normal';
 path1 = 'N:\Portugal_Normal_DR\OCTA_SRL';
 path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\totaldata';
-path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test';
-path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\super';
+%path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test';
+%path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\super';
 
 xx=11;
 alpha = 1 ;
@@ -101,14 +101,99 @@ function ComputeHessian ( img , outpath, fname, id)
     %sigmas1=sigmas(1:1:20); %(0.1 to 2)
     %sigmas2=sigmas(51:1:100);%(5 to 10)
     %sigmas4=sigmas(131:1:end);%(13 to 16)
-    sigmas1=sigmas(1:0.5:5);
-    sigmas2=sigmas(5:1:10);
-    sigmas4=sigmas(10:1:20);
-	[outIm, whatScale,Direction] = Hessian_Vesselness(1-img,Options,sigmas2); %figure; imshow(outIm);title('outIm(5-10)');%figure; imshow(Direction);
-	[outImL,whatScale,Direction] = Hessian_Vesselness(1-img,Options,sigmas4); %figure; imshow(outImL);title('outImL(13-16)');%figure; imshow(Direction);
-	[outImh,whatScale,Direction] = Hessian_Vesselness(1-img,Options,sigmas1); %figure; imshow(outImh);title('outImh');%figure;imshow(Direction);
-	[outImR,whatScale,Direction] = Hessian_Vesselness(img,Options,1); %figure; imshow(outImR);title('outImR');%figure; imshow(Direction);
+    sigmas1=sigmas(1:0.5:20);
+    sigmas2=sigmas(21:1:50);
+    sigmas4=sigmas(21:1:40);
+    
+    
+	[outIm2, whatScale2,Direction2] = Hessian_Vesselness(1-img,Options,sigmas2); %figure; imshow(outIm);title('outIm(5-10)');%figure; imshow(Direction);
+	[outIm4,whatScale4,Direction4]  = Hessian_Vesselness(1-img,Options,sigmas4); %figure; imshow(outImL);title('outImL(13-16)');%figure; imshow(Direction);
+	[outIm1,whatScale1,Direction1]  = Hessian_Vesselness(1-img,Options,sigmas1); %figure; imshow(outImh);title('outImh');%figure;imshow(Direction);
+	[outImR,whatScale,Direction]    = Hessian_Vesselness(img,Options,1); %figure; imshow(outImR);title('outImR');%figure; imshow(Direction);
      
+    %imLast (:,:) = max(outIm2(:,:),outIm4(:,:));
+    %imLast (:,:) = max(imLast(:,:),outIm1(:,:));
+    %imLast2 (:,:) = max(imLast(:,:),outImR(:,:)); 
+    %figure; imshow([outImR,outIm2,outIm4]);
+    level1 = adaptthresh(mat2gray(outIm1));
+    level2 = adaptthresh(mat2gray(outIm2));
+    level4 = adaptthresh(mat2gray(outIm4));
+    
+    %figure; imshow([whatScale1, whatScale2, whatScale4]);
+     %figure; imshow([Direction1, Direction2, Direction4]);
+    
+    imBinary1 = imbinarize(mat2gray(outIm1),level1);
+    imBinary2 = imbinarize(mat2gray(outIm2),level2);
+    
+    %imBinary1=bwareaopen(imBinary1,10);
+    %imBinary2=bwareaopen(imBinary2,10);
+    %figure; imshow([imBinary1, imBinary2,imBinary4]);
+    
+    %imSkel1 = bwmorph(imBinary1,'open');
+    %imSkel2 = bwmorph(imBinary2,'open');
+    %imSkel4 = bwmorph(imBinary4,'open');
+    %figure; imshow([imSkel1, imSkel2,imSkel4]);
+    
+    imSkel1 =  bwmorph(bwmorph(imBinary1,'thin', inf),'clean');
+    imSkel2 =  bwmorph(bwmorph(imBinary2,'thin', inf),'clean');
+    %imSkel4 =  bwmorph(bwmorph(imBinary4,'thin', inf),'clean');
+    %figure; imshow([imSkel1, imSkel2,imSkel4]);
+    
+    se = strel('disk',1);
+    %imSkel11 = imdilate(imSkel1, se);
+    imSkel2 = imdilate(imSkel2, se);
+    %imSkel44 = imdilate(imSkel4, se);
+    %figure; imshow([imSkel11, imSkel22, imSkel44]);
+    %extend lines 
+    %imSkel11 =  bwmorph(bwmorph(imSkel1,'diag',2),'thin', inf);
+    %imSkel22 =  bwmorph(bwmorph(imSkel2,'diag',2),'thin', inf);
+    %imSkel44 =  bwmorph(bwmorph(imSkel4,'diag',2),'thin', inf);
+    %figure; imshow([imSkel11, imSkel22,imSkel44]);title('diag');
+    
+    %'bridge'
+    %extend lines 
+    %imSkel111 =  bwmorph(bwmorph(imSkel11,'bridge',2),'thin', inf);
+    %imSkel222 =  bwmorph(bwmorph(imSkel22,'bridge',2),'thin', inf);
+    %imSkel444 =  bwmorph(bwmorph(imSkel44,'bridge',2),'thin', inf);
+    %figure; imshow([imSkel111, imSkel222,imSkel444]);title('bridge');
+     %imSkel111 =  bwmorph(imSkel111,'close');
+     %imSkel222 =  bwmorph(imSkel222,'close');
+     %imSkel444 =  bwmorph(imSkel444,'close');
+     %figure; imshow([imSkel111, imSkel222,imSkel444]);title('thick');
+    %im = max(imSkel111,imSkel222);
+    %im = max(im,imSkel444);
+    %im = bwmorph(im, 'fill');
+    %figure; imshow(im);
+    %im = bwmorph(im, 'thin',inf);
+    %figure; imshow(im);
+    %figure; imshow([img,im]);
+    
+    imjoined = max(imSkel1,imSkel2);
+    imjoined = bwmorph(imjoined, 'thin', inf);
+    
+    imBinaryD = imbinarize(mat2gray(outIm1));
+    imBinaryD = bwmorph(imBinaryD, 'thin', inf);
+    D = bwdist(imBinaryD);%figure; imshow(D,[]); title('D');f
+    imBinaryD = imbinarize(mat2gray(D),0.5);
+    ind = find (imBinaryD>0);
+    imjoined (ind)=0; 
+    imjoined = imdilate(imjoined, se); 
+    
+    BWopenSkel3(:,:,1)  = imjoined;
+    BWopenSkel3(:,:,2)  = imjoined;
+    BWopenSkel3(:,:,3)  = imjoined;
+    
+
+
+    img3(:,:,1)  = img;
+    img3(:,:,2)  = img;
+    img3(:,:,3)  = img;
+    wideImage = [img3, BWopenSkel3];
+    %outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train\', strcat(num2str(id),'.png'));
+    outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train2\', strcat(num2str(id),'.png'));
+    imwrite(wideImage, convertStringsToChars(outnamePix2pix));
+    
+    %{
      IR3=outImR;
      HessianThres=0;
      Lochessian = find(IR3<=HessianThres);
@@ -147,9 +232,7 @@ function ComputeHessian ( img , outpath, fname, id)
 %	figure(12), imshow(BW,[0,1],'Border','Tight'), title('Adaptive Threshold plus Hessian filter')
 	BW3 = bwmorph(BW,'skel',Inf);
     
-    BWopenSkel3(:,:,1)  = BW3;
-    BWopenSkel3(:,:,2)  = BW3;
-    BWopenSkel3(:,:,3)  = BW3;
+
     
 	BWDi=bwmorph(BW3,'dilate',1);
 	BW3=BWDi;
@@ -167,17 +250,7 @@ function ComputeHessian ( img , outpath, fname, id)
     BWopenSkel = bwmorph(BWopen,'skel',Inf);
     
     
-    img3(:,:,1)  = img;
-    img3(:,:,2)  = img;
-    img3(:,:,3)  = img;
-    wideImage = [img3, BWopenSkel3];
-    %%
-    %global xx;
-    global alpha
-    %outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train\', strcat(num2str(id),'.png'));
-    outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train2\', strcat(num2str(id),'.png'));
-    xx=xx+1;
-    imwrite(wideImage, convertStringsToChars(outnamePix2pix));
+
     %%
 	Isolate=BW3-BWopen;
     %This is a distance map, which can be used for weighting not for contouring.
@@ -415,5 +488,5 @@ Dist = mat2gray(bwdist(largevessels,'euclidean'));
     outname3 =  strcat(outname, '_AllAngle.png');
     imwrite(rgbImage, convertStringsToChars(outname3));
 
-    
+    %}
 end 
