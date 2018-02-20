@@ -8,15 +8,19 @@ addpath('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\frangi_filter_version2a
 %path1 = '\\zusdqbsfs006.usdqb.zeiss.org\advshare\Data\IschemiaTesting\Normals';
 %path1 = 'C:\\Users\\u6abhatt\\Documents\\Work\\Code\\AriMatlab\\data';
 %path1  = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\normal';
-path1 = 'N:\Portugal_Normal_DR\OCTA_SRL';
-path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\totaldata';
+%path1 = 'N:\Portugal_Normal_DR\OCTA_SRL';
+path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test';
+%path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\diseased2Repeats\';
 %path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test';
 %path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\super';
+path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\OCTA_SRL\';
 
 xx=11;
 alpha = 1 ;
-paths = allImagePaths(path1,'3x3');
-
+paths1 = allImagePaths(path1,'3x3');
+paths2 = allImagePaths(path1,'3mm');
+paths = [paths1 paths2];
+fileID = fopen(strcat(path1,'\train_data_id.txt'),'w');
 %for each image 
 for id=1:length(paths)
     dirpath = paths(id).folder; 
@@ -33,11 +37,22 @@ for id=1:length(paths)
     outpath = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\weightTests\';
     outname = strcat(outpath,fname);
     %imwrite(I,outname);
-    ComputeNonVascularProps(double(I), outpath, fname, id );
-end
+    %ComputeNonVascularProps(I, outpath, fname, id );
+    stats=ComputeSkeleton2 ( I, outpath, fname, id);
+    if id ==1
+        totalstats = stats ;
+    else
+        totalstats = vertcat(totalstats, stats);
+    end
     
+    
+    fprintf(fileID,'%s %s\n', num2str(id), fname);
+end
+% write total stats info 
+writetable(struct2table(totalstats), 'AreaInfo.txt')
 
-
+[B,ind] = sort( transpose([totalstats.Area]));
+newdata = transpose(struct2cell(totalstats));
 
 function [allpaths] = allImagePaths (path, pattern)
     global xx; 
@@ -79,7 +94,8 @@ function ComputeNonVascularProps(Img, outpath, fname,id)
 % Return the properties. 
 % List of descriptors without the FAZ 
 % Print out the associated images.
-Img   =imresize(Img,[256 256]);
+%{
+Img   =imresize(Img,[512 512],'bicubic');
 NoiseLevel=min(Img(:));
 Img    =(Img-NoiseLevel)/(max(Img(:))-NoiseLevel);
 sigma  =1.5;    % scale parameter in Gaussian kernel
@@ -90,26 +106,57 @@ X_tile=10;
 Is=ImgSmooth;
 Ih=(adapthisteq(1-Img,'NumTiles',[Y_tile X_tile]));
 IH=((Img*2)+(1-Ih))/3;
-ComputeHessian(IH, outpath, fname, id );
+%}
+%I = (histeq(Img));
+%I = imguidedfilter(I);
+%I = double(I);
+ComputeHessian(Img, outpath, fname, id );
 end
 
 function ComputeHessian ( img , outpath, fname, id)
-    global xx
-    Options.FrangiScaleRange = [0.1 16];
-    Options.FrangiScaleRatio = 0.1;
+    
+    imgCopy = img; 
+    img = (histeq(img));
+    img = imguidedfilter(img);
+    img = double(img);
+    Options.FrangiScaleRange = [1 6];
+    Options.FrangiScaleRatio = 1;
     sigmas=Options.FrangiScaleRange(1):Options.FrangiScaleRatio:Options.FrangiScaleRange(2);
     %sigmas1=sigmas(1:1:20); %(0.1 to 2)
     %sigmas2=sigmas(51:1:100);%(5 to 10)
     %sigmas4=sigmas(131:1:end);%(13 to 16)
-    sigmas1=sigmas(1:0.5:20);
-    sigmas2=sigmas(21:1:50);
-    sigmas4=sigmas(21:1:40);
+    % trying the existing code; 
     
+    %H = 512;
+    %W = 512;
+    %I=imresize(img, [H W]);
+   
+    IM=sort(nonzeros(img(:)));
+    NoiseLevel=mean(IM(end-4:end))*.11;
+    %dims.mmX = 3;
+    %dims.mmY = 3;
+%calculate binary images
+[BinaryImage, preHessianImage] = VasculatureBinarization(img, NoiseLevel);
+
+    %existing code try end; 
+    
+    %sigmas1=sigmas(1:0.5:20);
+    %sigmas2=sigmas(21:1:50);
+    %sigmas4=sigmas(21:1:40);
+    sigmas1 = [1:1:4];
+    sigmas2 = [21:1:50];
+    sigmas4 = [21:1:40];
+    
+    img=(img-NoiseLevel)/(max(img(:))-NoiseLevel);
+    %smooth 
+    %sigma=0.5;    % scale parameter in Gaussian kernel
+    %G=fspecial('gaussian',12,sigma); % Caussian kernel
+    %img=conv2(img,G,'same');  % smooth image by Gaussiin convolution
     
 	[outIm2, whatScale2,Direction2] = Hessian_Vesselness(1-img,Options,sigmas2); %figure; imshow(outIm);title('outIm(5-10)');%figure; imshow(Direction);
-	[outIm4,whatScale4,Direction4]  = Hessian_Vesselness(1-img,Options,sigmas4); %figure; imshow(outImL);title('outImL(13-16)');%figure; imshow(Direction);
-	[outIm1,whatScale1,Direction1]  = Hessian_Vesselness(1-img,Options,sigmas1); %figure; imshow(outImh);title('outImh');%figure;imshow(Direction);
-	[outImR,whatScale,Direction]    = Hessian_Vesselness(img,Options,1); %figure; imshow(outImR);title('outImR');%figure; imshow(Direction);
+	[outIm4, whatScale4,Direction4]  = Hessian_Vesselness(1-img,Options,sigmas4); %figure; imshow(outImL);title('outImL(13-16)');%figure; imshow(Direction);
+	[outIm1, whatScale1,Direction1]  = Hessian_Vesselness(1-img,Options,sigmas1); %figure; imshow(outImh);title('outImh');%figure;imshow(Direction);
+	[outImR, whatScale,Direction]    = Hessian_Vesselness(img,Options,1); %figure; imshow(outImR);title('outImR');%figure; imshow(Direction);
      
     %imLast (:,:) = max(outIm2(:,:),outIm4(:,:));
     %imLast (:,:) = max(imLast(:,:),outIm1(:,:));
@@ -123,7 +170,9 @@ function ComputeHessian ( img , outpath, fname, id)
      %figure; imshow([Direction1, Direction2, Direction4]);
     
     imBinary1 = imbinarize(mat2gray(outIm1),level1);
-    imBinary2 = imbinarize(mat2gray(outIm2),level2);
+    %imBinary2 = imbinarize(mat2gray(outIm2),level2+0.3);
+    imBinary2 = imbinarize(mat2gray(outIm1),level1+0.3);
+    
     
     %imBinary1=bwareaopen(imBinary1,10);
     %imBinary2=bwareaopen(imBinary2,10);
@@ -139,9 +188,10 @@ function ComputeHessian ( img , outpath, fname, id)
     %imSkel4 =  bwmorph(bwmorph(imBinary4,'thin', inf),'clean');
     %figure; imshow([imSkel1, imSkel2,imSkel4]);
     
-    se = strel('disk',1);
+    se = strel('disk',2);
     %imSkel11 = imdilate(imSkel1, se);
     imSkel2 = imdilate(imSkel2, se);
+    imSkel2 = bwareaopen(imSkel2,50);
     %imSkel44 = imdilate(imSkel4, se);
     %figure; imshow([imSkel11, imSkel22, imSkel44]);
     %extend lines 
@@ -167,7 +217,7 @@ function ComputeHessian ( img , outpath, fname, id)
     %im = bwmorph(im, 'thin',inf);
     %figure; imshow(im);
     %figure; imshow([img,im]);
-    
+    %{
     imjoined = max(imSkel1,imSkel2);
     imjoined = bwmorph(imjoined, 'thin', inf);
     
@@ -183,15 +233,56 @@ function ComputeHessian ( img , outpath, fname, id)
     BWopenSkel3(:,:,2)  = imjoined;
     BWopenSkel3(:,:,3)  = imjoined;
     
-
-
-    img3(:,:,1)  = img;
-    img3(:,:,2)  = img;
-    img3(:,:,3)  = img;
-    wideImage = [img3, BWopenSkel3];
-    %outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train\', strcat(num2str(id),'.png'));
-    outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train2\', strcat(num2str(id),'.png'));
-    imwrite(wideImage, convertStringsToChars(outnamePix2pix));
+    %}
+    %BWopenSkel3(:,:,1)  = max (uint8(BinaryImage.Skeleton).*255, uint8(imSkel2).*255);
+    %BWopenSkel3(:,:,2)  = max (uint8(BinaryImage.Skeleton).*255, uint8(imSkel2).*255);
+    %BWopenSkel3(:,:,3)  =  max (uint8(BinaryImage.Skeleton).*255, uint8(imSkel2).*255);
+    
+    %skeleton  = uint8(BinaryImage.Skeleton).*128;
+    %skeleton(find(uint8(imSkel2).*128 == 128))=0;
+    %BWopenSkel3(:,:,1) = uint8(imSkel2).*128;
+    %BWopenSkel3(:,:,2) = skeleton;
+    %BWopenSkel3(:,:,3) = 0;
+    
+    
+    %skeleton  = BinaryImage.Skeleton;
+    skeleton  = imSkel1;
+    skeleton(find(imSkel2 == 1))=0;
+    BWopenSkel3(:,:,1) = imSkel2;
+    BWopenSkel3(:,:,2) = skeleton;
+    BWopenSkel3(:,:,3) = 0;
+    
+    % add scale information 
+    scaleSpace = uint8(mat2gray(whatScale1.*imSkel2).*255);
+    finalSkeleton(:,:,1) = scaleSpace;
+    finalSkeleton(:,:,2) = uint8(skeleton.*255);
+    finalSkeleton(:,:,3) = 0;
+    
+    %for i=1:20000
+    %    x = int16(rand*255)+1;
+    %    y = int16(rand*255)+1;
+    %    BWopenSkel3(x,y,1) =1; 
+    %    BWopenSkel3(x,y,2) =0;
+    %    BWopenSkel3(x,y,3) =0; 
+    %end    
+    
+    img3(:,:,1)  = imgCopy;
+    img3(:,:,2)  = imgCopy;
+    img3(:,:,3)  = imgCopy;
+    %wideImage = [uint8(img3), uint8(BWopenSkel3).*255];
+    wideImage = [img3, finalSkeleton];
+    %figure; imshow([img3, finalSkeleton]);
+    %outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\train3b\', strcat(num2str(id),'.png'));
+    outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\pix2pix-tensorflow\retina\val3\', strcat(num2str(id),'.png'));
+    imwrite((wideImage), convertStringsToChars(outnamePix2pix));
+    
+    %UINT TEST
+    %{
+    outnameTrainA = strcat('C:\Users\u6abhatt\Documents\Work\Code\UINT\skel2super\trainA\', strcat(num2str(id),'.png'));
+    outnameTrainB = strcat('C:\Users\u6abhatt\Documents\Work\Code\UINT\skel2super\trainB\', strcat(num2str(id),'.png'));
+    imwrite(double(img3), convertStringsToChars(outnameTrainA));
+    imwrite(double(BWopenSkel3), convertStringsToChars(outnameTrainB));
+    %}
     
     %{
      IR3=outImR;
@@ -490,3 +581,151 @@ Dist = mat2gray(bwdist(largevessels,'euclidean'));
 
     %}
 end 
+
+function stats=ComputeSkeleton2(Img, outpath, fname,id)
+%I  = (imread ('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test\PCZMI3968362_Angiography 3x3 mm_11-29-2016_13-0-18_OD_sn5572_FlowCube_z.img_original_super - Copy.png'));
+%I  = (imread ('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\diseased2Repeats\CASE1-P610625SG_Angiography 3x3 mm_7-11-2016_10-36-55_OS_sn0370_super.png'));
+%I = (imread ('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\normal\P5000-00006-DensityRR-313_Angiography 3x3 mm_3-4-2016_11-20-18_OD_sn0044_super.png'));
+%I = imresize(I, [512, 512],'lanczos3');
+%figure; imshow( I, []);
+
+%figure; imshow(I,[]);
+
+%IM=sort(nonzeros(I(:)));
+%NoiseLevel=mean(IM(end-4:end))*.11;
+%[BinaryImage, preHessianImage] = VasculatureBinarization(double(I), 0.1);
+I = Img; 
+I = double(histeq(I));
+%I = padarray(I,[50 50],'both');
+%I = double(imguidedfilter(I));
+
+
+Options.FrangiScaleRange = [1 4];
+Options.FrangiScaleRatio = 1;
+Options.BlackWhite = false;
+sigmas=Options.FrangiScaleRange(1):Options.FrangiScaleRatio:Options.FrangiScaleRange(2);
+[outIm1, whatScale1,Direction1] = Hessian_Vesselness(I,Options,sigmas);
+angles = sin(deg2rad(abs(Direction1)));
+
+%figure; imshow(1-outIm1);
+%figure; imshow(exp((1-outIm1).^3),[]);
+%figure; imshow(imbinarize(mat2gray(exp((1-outIm1).^3))),[]);title('3');colormap(jet);
+%figure; imshow(imbinarize(mat2gray(exp((1-outIm1).^2))),[]);title('2');colormap(jet);
+
+%remove small things
+invI = imbinarize(mat2gray(exp((1-outIm1).^2)));
+%figure; imshow(~invI);title('~invI');
+withoutsmall1  = bwareaopen(~invI, 50);
+%figure; imshow(withoutsmall1);title('removed small');
+
+% remove small blacks;
+% this shows a nice set of surrounding edges
+%{
+invwithoutsmall1 = imcomplement(withoutsmall1); figure; imshow(invwithoutsmall1);
+SE = strel('disk',2);
+invwithoutsmall1SE = imerode(invwithoutsmall1,SE);figure; imshow(invwithoutsmall1SE);
+invwithoutsmall1SE = imdilate(invwithoutsmall1,SE);figure; imshow(invwithoutsmall1SE);
+diffI = imabsdiff(invwithoutsmall1SE, invwithoutsmall1);
+figure; imshow(diffI);
+%}
+
+
+imSkel1 =  bwmorph(bwmorph(withoutsmall1,'thin', inf),'clean');
+%figure; imshow(imSkel1);title('imskel');
+
+
+
+SE = strel('disk',2);
+imSkel1Extend = imdilate(imSkel1,SE);
+%figure; imshow(imSkel1Extend,[]);title('imskelExtend');
+%figure; imshow(imSkel1Extend,[]);
+
+%remove intersection
+imSkel1WOintersection = bwareaopen(1-imSkel1Extend, 100);% figure; imshow(imSkel1WOintersection);
+
+intersectionMask = ~imabsdiff(imSkel1WOintersection,imSkel1Extend);
+%figure; imshow(intersectionMask);title('intersectionMask');
+%figure; imshow(imfuse(intersectionMask, imSkel1Extend),[]);
+%figure; imshow(I.*intersectionMask,[]);
+addMask = (I.*intersectionMask) > 150; % IMP I range goes from 0-255 check this./ 
+% add the mask skeleton4 has no intersection/
+skeleton4 = imSkel1Extend + addMask;
+%figure; imshow(skeleton4);
+%redo with the new one 
+skeleton4Thin =  bwmorph(bwmorph(skeleton4,'thin', inf),'clean');
+%figure; imshow(skeleton4Thin);
+ outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\testsGAN\', strcat(num2str(id),'.png'));
+ imwrite((uint8(skeleton4Thin.*255)), convertStringsToChars(outnamePix2pix));
+
+
+output ( :,:,1) = uint8(I.*0.5) + uint8(skeleton4Thin.*255); 
+output (:,:,2)  = uint8(I.*0.5);
+output (:,:,3)  = uint8(I.*0.5);
+ outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\tests\', strcat(num2str(id),'.png'));
+ imwrite((uint8(output)), convertStringsToChars(outnamePix2pix));
+%figure; imshow( output,[]);
+%{
+%%Comparison%%
+diskSize = 51;
+[binaryImage_SRL, smoothMap_SRL, additionalImages] = VascularDensityCalculateSRL(I, diskSize, diskSize, -1);
+%figure; imshow ( binaryImage_SRL.Skeleton);
+comp ( :,:,1) = uint8(I.*0.5) + uint8( binaryImage_SRL.Skeleton.*255); 
+comp (:,:,2)  = uint8(I.*0.5);
+comp (:,:,3)  = uint8(I.*0.5);
+%figure; imshow( comp,[]);
+ outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\comparison\', strcat(num2str(id),'.png'));
+ imwrite( [(uint8(output)),(uint8(comp))], convertStringsToChars(outnamePix2pix));
+%}
+SE = strel('disk',1);
+skeleton4Extend = imdilate(skeleton4Thin,SE);
+[L,NUM] = bwlabeln(1-skeleton4Extend);
+[m,n] = size( skeleton4Extend );
+test2 = zeros( m);
+image = mat2gray(exp((1-outIm1).^2)); 
+
+
+for ii=1:NUM
+individualMask = L==ii;
+numberOfTruePixels = sum(individualMask(:));
+if(numberOfTruePixels > 450 )
+Iindi = image.*individualMask;
+test2 = test2|imbinarize(Iindi);
+end
+end
+% cluster 
+cc = bwconncomp(test2);  
+L = labelmatrix(cc);
+
+
+
+indexNums = [];
+fnames    = [];
+for ii=1:cc.NumObjects
+indexNums = vertcat(indexNums , ii);
+fnames = vertcat(fnames , {fname});
+end
+stats = regionprops(cc, 'Area','Centroid');
+
+C = num2cell(indexNums);
+[stats(:).index] = deal(C{:});
+
+C = num2cell(fnames);
+[stats(:).fn] = fnames{:};
+
+
+
+RGB2 = label2rgb(L, 'spring'); 
+close all;
+figure, imshow(RGB2);title  ('Area');
+%figure; imshow ( imfuse(RGB2,I,'blend','Scaling','joint'));
+hold on
+for k = 1:numel(stats)
+    x = stats(k).Centroid(1);
+    y = stats(k).Centroid(2);
+    text(x, y, sprintf('%d', stats(k).Area), 'Color', 'b', ...
+        'FontWeight', 'bold');
+end
+hold off
+saveas(gcf,strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\labelImages\',fname));
+
+end
