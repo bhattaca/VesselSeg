@@ -14,6 +14,7 @@ path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test';
 %path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\test';
 %path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\super';
 path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\OCTA_SRL\';
+path1 = 'C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\portugalSmall\'
 
 xx=11;
 alpha = 1 ;
@@ -654,14 +655,14 @@ skeleton4 = imSkel1Extend + addMask;
 %redo with the new one 
 skeleton4Thin =  bwmorph(bwmorph(skeleton4,'thin', inf),'clean');
 %figure; imshow(skeleton4Thin);
- outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\testsGAN\', strcat(num2str(id),'.png'));
+ outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\smalltestsGAN\', strcat(num2str(id),'.png'));
  imwrite((uint8(skeleton4Thin.*255)), convertStringsToChars(outnamePix2pix));
 
 
 output ( :,:,1) = uint8(I.*0.5) + uint8(skeleton4Thin.*255); 
 output (:,:,2)  = uint8(I.*0.5);
 output (:,:,3)  = uint8(I.*0.5);
- outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\tests\', strcat(num2str(id),'.png'));
+ outnamePix2pix = strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\smalltests\', strcat(num2str(id),'.png'));
  imwrite((uint8(output)), convertStringsToChars(outnamePix2pix));
 %figure; imshow( output,[]);
 %{
@@ -682,14 +683,27 @@ skeleton4Extend = imdilate(skeleton4Thin,SE);
 [m,n] = size( skeleton4Extend );
 test2 = zeros( m);
 image = mat2gray(exp((1-outIm1).^2)); 
+%figure; imshow ( L,[]);
 
 
 for ii=1:NUM
 individualMask = L==ii;
+individualMask = imfill(individualMask,'holes');
 numberOfTruePixels = sum(individualMask(:));
-if(numberOfTruePixels > 450 )
-Iindi = image.*individualMask;
-test2 = test2|imbinarize(Iindi);
+if(numberOfTruePixels > 400 )
+grayvals = uint8(I);
+grayvalInvert = uint8(ones (m).*255);
+grayvalInvert = grayvalInvert - grayvals;
+grayvalInvert = mat2gray(grayvalInvert);
+grayvalInvert = mat2gray( exp(grayvalInvert));
+%figure; imshow (grayvalInvert,[]);
+
+    
+Iindi = grayvalInvert.*individualMask;
+%figure; imshow ( Iindi,[]);
+Ibin = imbinarize(Iindi);
+%figure; imshow (Ibin,[]);
+test2 = test2 | Ibin;
 end
 end
 % cluster 
@@ -714,18 +728,17 @@ C = num2cell(fnames);
 
 
 
-RGB2 = label2rgb(L, 'spring'); 
+RGB2 = label2rgb(L, 'gray'); 
 close all;
 figure, imshow(RGB2);title  ('Area');
-%figure; imshow ( imfuse(RGB2,I,'blend','Scaling','joint'));
+%figure; imshow ( imfuse(RGB2,imfuse(skeleton4Thin,I),'blend','Scaling','joint'));
 hold on
 for k = 1:numel(stats)
     x = stats(k).Centroid(1);
     y = stats(k).Centroid(2);
-    text(x, y, sprintf('%d', stats(k).Area), 'Color', 'b', ...
+    text(x, y, sprintf('%d, %d', stats(k).Area,k), 'Color', 'g', ...
         'FontWeight', 'bold');
 end
-hold off
-saveas(gcf,strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\labelImages\',fname));
+saveas(gcf,strcat('C:\Users\u6abhatt\Documents\Work\Code\AriMatlab\data\portugal\smalllabelImages\',fname));
 
 end
